@@ -21,7 +21,7 @@ public class User {
 	private String username;
 	private String password;
 	@XmlElement
-	private List<MaintenanceBook> maintencenBooks;
+	private List<MaintenanceBook> maintenanceBooks;
 	@XmlElement
 	private UserProfile userProfile;
 	
@@ -31,8 +31,8 @@ public class User {
 	public User(String username, String password) {
 		this.username = username;
 		this.password = password;
-		if (this.maintencenBooks == null) {
-			this.maintencenBooks = new ArrayList<MaintenanceBook>();
+		if (this.maintenanceBooks == null) {
+			this.maintenanceBooks = new ArrayList<MaintenanceBook>();
 		}
 	}
 	
@@ -60,12 +60,12 @@ public class User {
 		this.password = password;
 	}
 
-	public List<MaintenanceBook> getMaintencenBooks() {
-		return maintencenBooks;
+	public List<MaintenanceBook> getMaintenanceBooks() {
+		return maintenanceBooks;
 	}
 
-	public void setMaintencenBooks(List<MaintenanceBook> maintencenBooks) {
-		this.maintencenBooks = maintencenBooks;
+	public void setMaintencenBooks(List<MaintenanceBook> maintenanceBooks) {
+		this.maintenanceBooks = maintenanceBooks;
 	}
 
 	public UserProfile getUserProfile() {
