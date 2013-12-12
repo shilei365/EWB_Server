@@ -1,11 +1,13 @@
 package com.pyrexx.ewb.rest;
 
 import java.io.Serializable;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
 import com.pyrexx.ewb.domain.*;
+import com.sun.jersey.spi.resource.Singleton;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -19,6 +21,7 @@ import javax.ws.rs.QueryParam;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
 
+@Singleton
 @Path("/user")
 public class UserResource  {
 	//private static final long serialVersionUID = 123456l;
@@ -140,7 +143,6 @@ public class UserResource  {
 
 	// function save_ewb_id
 	private String createEWB(JSONObject json) throws JSONException {
-		System.out.println(" The size of mBook 1: "+ users.get(0).getMaintenanceBooks().size()); // LOG
 		String username = json.getString("username");
 		String password = json.getString("password");
 		JSONObject params = json.getJSONObject("params");
@@ -151,12 +153,10 @@ public class UserResource  {
 		infoJSON.put("ewb_str_town", params.optString("ewb_str_town"));
 		infoJSON.put("ewb_ls_name", params.optString("ewb_ls_name"));
 		System.out.println(" username: " + username); // LOG
-		System.out.println(" The size of mBook 2: "+ users.get(0).getMaintenanceBooks().size()); // LOG
 		if (username != null && password != null) {
 			for (int i = 0; i < users.size(); i++) {
 				if (username.equals(users.get(i).getUsername())
 						&& password.equals(users.get(i).getPassword())) {
-					System.out.println(" The size of mBook 3: "+ users.get(0).getMaintenanceBooks().size()); // LOG
 					if (params.getString("ewb_str_name").length() > 0) { //check if street name is empty or not
 						MaintenanceBook ewb = new MaintenanceBook(
 								params.optString("ewb_str_zip"),
@@ -170,11 +170,9 @@ public class UserResource  {
 								params.optString("ewb_mi_tel"));
 						
 						this.users.get(i).getMaintenanceBooks().add(ewb);
-						int size = users.get(i).getMaintenanceBooks().size();
-						ewb.setId(users.get(i).getMaintenanceBooks().get(size-1).getId()+1);
+						ewb.setId(this.calEWBId(users.get(i)));
 						System.out.println("  A new EWB has created, id: "
 								+ ewb.getId() + ", street: " + ewb.getRoad()); // LOG
-						System.out.println(" The size of mBook 4: "+ size); // LOG
 						responeJSON.put("status", 1);
 						responeJSON.put("statusdescription", "function is OK");
 						responeJSON.put("no_error", infoJSON);
@@ -199,21 +197,6 @@ public class UserResource  {
 	private String searchEWB(JSONObject json) throws JSONException {
 		String username = json.getString("username");
 		String password = json.getString("password");
-		String street = null;
-		String zip = null;
-		String houseNr = null;
-
-		if (json.opt("params") != null) {
-			street = json.getJSONObject("params").optString("ewb_str_name"); // if
-																				// no
-																				// ewb_str_name,
-																				// street
-																				// is
-																				// null
-			zip = json.getJSONObject("params").optString("ewb_str_zip");
-			houseNr = json.getJSONObject("params").optString("ewb_ls_name");
-		}
-
 		JSONObject responseJSON = new JSONObject();
 		JSONObject searchResult = new JSONObject();
 
@@ -226,45 +209,158 @@ public class UserResource  {
 																			// password
 					responseJSON.put("status", 1);
 					responseJSON.put("statusdescription", "Function is OK");
-					if (street == null && zip == null && houseNr == null) {
-						System.out.println("The ewb_search has no params."); //LOG
+					if (json.opt("params") == null) {
+						System.out.println("The ewb_search has no params."); // LOG
 						for (int n = 0; n < users.get(i).getMaintenanceBooks()
 								.size(); n++) {
-							System.out.println("mBook id:"+users.get(i).getMaintenanceBooks().get(n).getId()+", street:"+users.get(i).getMaintenanceBooks().get(n).getRoad()); //LOG
+							System.out.println("mBook id:"
+									+ users.get(i).getMaintenanceBooks().get(n)
+											.getId()
+									+ ", street:"
+									+ users.get(i).getMaintenanceBooks().get(n)
+											.getRoad()); // LOG
 							searchResult.put(
 									("" + (n + 1)),
-									this.getEWBByJSON(users.get(i)
+									this.getEWBInJSON(users.get(i)
 											.getMaintenanceBooks().get(n)));
 						}
 					} else { // with params,
-
+						List<MaintenanceBook> books = this.getEWBByParams(
+								users.get(i), json.getJSONObject("params"));
+						for (int m = 0; m < books.size(); m++) {
+							searchResult.put("" + m + 1,
+									this.getEWBInJSON(books.get(m)));
+						}
 					}
-					System.out.println(users.get(i).getMaintenanceBooks().size() + " EWB have found in the user "
+					System.out.println(users.get(i).getMaintenanceBooks()
+							.size()
+							+ " EWB have found in the user "
 							+ users.get(i).getUsername()); // LOG
 					responseJSON.put("ewb_search_result", searchResult);
 					return responseJSON.toString();
-
 				}
 			}
 		}
 		return "";
 	}
-	
+
 	// Return a EWB with JSON form
-	private JSONObject getEWBByJSON (MaintenanceBook book) throws JSONException {
+	private JSONObject getEWBInJSON(MaintenanceBook book) throws JSONException {
 		JSONObject jBook = new JSONObject();
 		if (book == null) {
 			jBook.put("0", " ");
 		} else {
-		jBook.put("ewb_id", book.getId());
-		jBook.putOpt("ewb_mi_name", book.getRenter_Name());
-		jBook.putOpt("ewb_mi_forename", book.getRenter_Firstname());
-		jBook.putOpt("ewb_str_name", book.getRoad());
-		jBook.putOpt("ewb_str_zip", book.getPostcode());
-		jBook.putOpt("ewb_str_town", book.getCity());
-		jBook.putOpt("ewb_ls_name", book.getHousenumber());
+			jBook.put("ewb_id", book.getId());
+			jBook.putOpt("ewb_mi_name", book.getRenter_Name());
+			jBook.putOpt("ewb_mi_forename", book.getRenter_Firstname());
+			jBook.putOpt("ewb_str_name", book.getRoad());
+			jBook.putOpt("ewb_str_zip", book.getPostcode());
+			jBook.putOpt("ewb_str_town", book.getCity());
+			jBook.putOpt("ewb_ls_name", book.getHousenumber());
 		}
 		return jBook;
-}
+	}
+
+	private List<MaintenanceBook> getEWBByParams(User user, JSONObject jParams)
+			throws JSONException {
+		String street = jParams.optString("ewb_str_name");
+		String zip = jParams.optString("ewb_str_zip");
+		String houseNr = jParams.optString("ewb_ls_name");
+		List<MaintenanceBook> results = new ArrayList<MaintenanceBook>();
+		int bookSize = user.getMaintenanceBooks().size();
+		// situation 1, there are zip and street name
+		if (zip.length() > 0 && street.length() > 0) {
+			if (houseNr.length() > 0) { // zip. street,house >0
+				for (int i = 0; i < bookSize; i++) {
+					MaintenanceBook book = user.getMaintenanceBooks().get(i);
+					if (book.getPostcode().indexOf(zip) > -1
+							&& book.getRoad().indexOf(street) > -1
+							&& book.getHousenumber().indexOf(zip) > -1) {
+						results.add(book);
+					}
+				}
+			} else {
+				// zip, street >0, house =0
+				for (int i = 0; i < bookSize; i++) {
+					MaintenanceBook book = user.getMaintenanceBooks().get(i);
+					if (book.getPostcode().indexOf(zip) > -1
+							&& book.getRoad().indexOf(street) > -1) {
+						results.add(book);
+					}
+				}
+			}
+		}
+		// situation 2, there is zip and no street name
+		if (zip.length() > 0) {
+			if (houseNr.length() > 0) {
+				// zip>0 ,street =0 ,house >0
+				for (int i = 0; i < bookSize; i++) {
+					MaintenanceBook book = user.getMaintenanceBooks().get(i);
+					if (book.getPostcode().indexOf(zip) > -1
+							&& book.getHousenumber().indexOf(zip) > -1) {
+						results.add(book);
+					}
+				}
+			} else {
+				// zip >0,street=0, house =0
+				for (int i = 0; i < bookSize; i++) {
+					MaintenanceBook book = user.getMaintenanceBooks().get(i);
+					if (book.getPostcode().indexOf(zip) > -1) {
+						results.add(book);
+					}
+				}
+			}
+		}
+		// situation 3, there is street name and no zip
+		if (street.length() > 0) {
+			if (houseNr.length() > 0) {
+				// zip=0 ,street>0 ,house >0
+				for (int i = 0; i < bookSize; i++) {
+					MaintenanceBook book = user.getMaintenanceBooks().get(i);
+					if (book.getRoad().indexOf(street) > -1
+							&& book.getHousenumber().indexOf(zip) >= 0) {
+						results.add(book);
+					}
+				}
+			} else {
+				// zip=0,street>0, house =0
+				for (int i = 0; i < bookSize; i++) {
+					MaintenanceBook book = user.getMaintenanceBooks().get(i);
+					if (book.getRoad().indexOf(street) > -1) {
+						results.add(book);
+					}
+				}
+			}
+		}
+		// situation 4, there is no street name and no zip, only housenr.
+		if (street.length() == 0 && zip.length() == 0) {
+			if (houseNr.length() > 0) {
+				// zip=0 ,street=0 ,house >0
+				for (int i = 0; i < bookSize; i++) {
+					MaintenanceBook book = user.getMaintenanceBooks().get(i);
+					if (book.getHousenumber().indexOf(zip) >= 0) {
+						results.add(book);
+					}
+				}
+			} else {
+				// zip=0,street=0, house =0
+				return user.getMaintenanceBooks();
+			}
+		}
+		return results;
+	}
 	
+	// calculate an id for ewb
+	private int calEWBId (User user) {
+		int id = 0;
+		int size = user.getMaintenanceBooks().size();
+		if (size == 1) {
+			id = 1;
+		}
+		if (size > 1) {
+			id = user.getMaintenanceBooks().get(size-2).getId()+1;
+		}		
+		return id;
+	}
+
 }
