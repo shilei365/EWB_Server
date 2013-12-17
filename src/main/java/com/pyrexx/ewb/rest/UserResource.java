@@ -100,13 +100,17 @@ public class UserResource  {
 	public String handleFunction(String requestJSON) throws JSONException {
 		JSONObject json = new JSONObject(requestJSON);
 		String function = json.getString("function");
-		if (function.equals("save_ewb_id")) { //save_ewb_id
+		if (function.equals("save_ewb_id")) {
 			System.out.println("##################### Function \"save_ewb_id\" ####################");
 			return this.createEWB(json);
 		}
-		if (function.equals("ewb_search")) { //search_ewb
+		if (function.equals("ewb_search")) {
 			System.out.println("##################### Function \"ewb_search\" ####################");
 			 return this.searchEWB(json);
+		}
+		if (function.equals("load_ewb_id")) {
+			System.out.println("#################### Function \"load_ewb_id\" #######################");
+			return this.loadEWBById(json);
 		}
 		if (function.equals("update_ewb_id")) {
 			System.out.println("#################### Function \"update_ewb_id\" #######################");
@@ -115,6 +119,10 @@ public class UserResource  {
 		if (function.equals("delete_ewb_id")) {
 			System.out.println("#################### Function \"delete_ewb_id\" #######################");
 			return this.deleteEWB(json);
+		}
+		if (function.equals("add_ewbr_id")) {
+			System.out.println("#################### Function \"add_ewbr_id\" #######################");
+			return this.addRoom(json);
 		}
 		
 		return "";
@@ -149,6 +157,37 @@ public class UserResource  {
 		return null;
 	}
 	
+	// function add_ewbr_id
+	private String addRoom(JSONObject json) throws JSONException {
+		JSONObject responeJSON = new JSONObject();
+		String username = json.getString("username");
+		String password = json.getString("password");
+		JSONObject params = json.getJSONObject("params");
+		if (username != null && password != null) {
+			for (int i = 0; i < users.size(); i++) {
+				if (username.equals(users.get(i).getUsername())
+						&& password.equals(users.get(i).getPassword())) { //validate the username and password
+					for (int n = 0; n < users.get(i).getMaintenanceBooks()
+							.size(); n++) {
+						if (params.getInt("ewb_id") == users.get(i)
+								.getMaintenanceBooks().get(n).getId()) {
+							int roomId = this.calculateRoomId(users.get(i).getMaintenanceBooks().get(n));
+							Room room = new Room(roomId, params.getString("ewbr_name"), params.getInt("ewb_id"));
+							users.get(i).getMaintenanceBooks().get(n).getRooms().add(room);
+							System.out.println(" The new room has added. Id:" +room.getId()+" name:"+room.getName()+" ewbId:"+room.getEwbId());
+							responeJSON.put("status", 1);
+							responeJSON.put("statusdescription", "function is ok!");
+							return responeJSON.toString();
+						}
+					}
+				}
+			}
+		}
+		responeJSON.put("status", 0);
+		responeJSON.put("statusdescription", "login failed");
+		return responeJSON.toString();
+	}
+	
 	// function delete_ewb_id
 	private String deleteEWB (JSONObject json) throws JSONException {
 		String username = json.getString("username");
@@ -174,6 +213,7 @@ public class UserResource  {
 		responeJSON.put("statusdescription", "Unknown error!");
 		return responeJSON.toString();
 	}
+	
 	// function update_ewb_id
 	private String updateEWBById (JSONObject json) throws JSONException {
 		String username = json.getString("username");
@@ -203,7 +243,8 @@ public class UserResource  {
 							users.get(i).getMaintenanceBooks().get(n).setRenter_Tel(params.optString("ewb_mi_tel"));
 							responeJSON.put("status", 1);
 							responeJSON.put("statusdescription", "function is OK");
-							responeJSON.put("no_error", infoJSON);
+							JSONObject jEwbId = new JSONObject();
+							responeJSON.put("no_error", jEwbId.put("ewb_id", users.get(i).getMaintenanceBooks().get(n).getId()));
 							return responeJSON.toString();
 						} 
 					}
@@ -222,6 +263,46 @@ public class UserResource  {
 		responeJSON.put("statusdescription", "Unknown error!");
 		responeJSON.put("error", "");
 		return responeJSON.toString();
+	}
+	
+	// function load_ewb_id
+	private String loadEWBById (JSONObject json) throws JSONException {
+		String username = json.getString("username");
+		String password = json.getString("password");
+		JSONObject params = json.getJSONObject("params");
+		JSONObject responeJSON = new JSONObject();
+		JSONObject jRoomList = new JSONObject();
+		
+		if (username != null && password != null) {
+			for (int i = 0; i < users.size(); i++) {
+				if (username.equals(users.get(i).getUsername())
+						&& password.equals(users.get(i).getPassword())) {
+					for (MaintenanceBook book : users.get(i).getMaintenanceBooks()) {
+						if (book.getId() == params.getInt("ewb_id")) {
+							responeJSON = this.getEWBInJSON(book);
+							responeJSON.putOpt("ewb_w_etage", book.getFloor());
+							responeJSON.putOpt("ewb_w_position", book.getPosition());
+							responeJSON.putOpt("ewb_mi_tel", book.getRenter_Tel());
+							responeJSON.putOpt("status", 1);
+							responeJSON.putOpt("statusdescription", "Function is ok!");
+							int num = 1;
+							for (Room room : book.getRooms()) {
+								jRoomList.put(""+num, this.getRoomInJSON(room));
+								num++;
+							}
+							responeJSON.put("ewbr_list", jRoomList);
+							System.out.println(" function response of load_ewb_id: "+responeJSON.toString());//LOG
+							return responeJSON.toString();
+						}
+					}
+					// ewb_id not found
+				}
+			}
+			// invaild username or password
+		}
+		responeJSON.putOpt("status", 0);
+		responeJSON.putOpt("statusdescription", "Login failed!");
+		return responeJSON.toString();		
 	}
 	
 	// function save_ewb_id
@@ -250,15 +331,16 @@ public class UserResource  {
 								params.optString("ewb_w_position"),
 								params.optString("ewb_mi_name"),
 								params.optString("ewb_mi_forename"),
-								params.optString("ewb_mi_tel"));
-						
+								params.optString("ewb_mi_tel"));				
 						this.users.get(i).getMaintenanceBooks().add(ewb);
-						ewb.setId(this.calculateEWBId(users.get(i)));
+						int ewbId = this.calculateEWBId(users.get(i));
+						ewb.setId(ewbId);
 						System.out.println("  A new EWB has created, id: "
 								+ ewb.getId() + ", street: " + ewb.getRoad()); // LOG
 						responeJSON.put("status", 1);
 						responeJSON.put("statusdescription", "function is OK");
-						responeJSON.put("no_error", infoJSON);
+						JSONObject jEwbId = new JSONObject();
+						responeJSON.put("no_error", jEwbId.put("ewb_id", ewbId));
 						return responeJSON.toString();
 					}
 				} else { // username or pw is false
@@ -327,7 +409,7 @@ public class UserResource  {
 		return "";
 	}
 
-	// Return a EWB with JSON form
+	// Return a EWB data with JSON form
 	private JSONObject getEWBInJSON(MaintenanceBook book) throws JSONException {
 		JSONObject jBook = new JSONObject();
 		if (book == null) {
@@ -340,10 +422,27 @@ public class UserResource  {
 			jBook.putOpt("ewb_str_zip", book.getPostcode());
 			jBook.putOpt("ewb_str_town", book.getCity());
 			jBook.putOpt("ewb_ls_name", book.getHousenumber());
+//			jBook.putOpt("ewb_w_etage", book.getFloor());
+//			jBook.putOpt("ewb_w_position", book.getPosition());
+//			jBook.putOpt("ewb_mi_tel", book.getRenter_Tel());
 		}
 		return jBook;
 	}
 
+	//return a room data with json
+	private JSONObject getRoomInJSON (Room room) throws JSONException {
+		JSONObject jRoom = new JSONObject();
+		if (room == null) {
+			jRoom.put("0", " ");
+		} else {
+			jRoom.put("ewbr_id", room.getId());
+			jRoom.put("ewb_id", room.getEwbId());
+			jRoom.putOpt("ewbr_name", room.getName());
+		}
+		return jRoom;
+	}
+	
+	
 	private List<MaintenanceBook> getEWBByParams(User user, JSONObject jParams)
 			throws JSONException {
 		String street = jParams.optString("ewb_str_name");
@@ -443,6 +542,16 @@ public class UserResource  {
 		if (size > 1) {
 			id = user.getMaintenanceBooks().get(size-2).getId()+1;
 		}		
+		return id;
+	}
+	
+	// calculate an id for a new room (ewbr_id)
+	private int calculateRoomId (MaintenanceBook book) {
+		int id = 0;
+		int size = book.getRooms().size();
+		if(size > 0) {
+			id = book.getRooms().get(size-1).getId()+1;
+		}
 		return id;
 	}
 

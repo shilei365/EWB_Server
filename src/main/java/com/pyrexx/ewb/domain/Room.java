@@ -13,6 +13,7 @@ public class Room {
 	
 	private int id;
 	private String name;
+	private int ewbId;
 	@XmlElement
 	private List<Sensor> sensors;
 	
@@ -20,6 +21,23 @@ public class Room {
 	
 	public Room (String name) {
 		this.name = name;
+		if (this.sensors == null) {
+			this.sensors = new ArrayList<Sensor>();
+		}
+	}
+	
+	public Room (String name, int ewbId){
+		this.name = name;
+		this.ewbId = ewbId;
+		if (this.sensors == null) {
+			this.sensors = new ArrayList<Sensor>();
+		}
+	}
+	
+	public Room (int id, String name, int ewbId){
+		this.id = id;
+		this.name = name;
+		this.ewbId = ewbId;
 		if (this.sensors == null) {
 			this.sensors = new ArrayList<Sensor>();
 		}
@@ -48,6 +66,13 @@ public class Room {
 	public void setSensors(List<Sensor> sensors) {
 		this.sensors = sensors;
 	}
-	
+
+	public int getEwbId() {
+		return ewbId;
+	}
+
+	public void setEwbId(int ewbId) {
+		this.ewbId = ewbId;
+	}
 	
 }
