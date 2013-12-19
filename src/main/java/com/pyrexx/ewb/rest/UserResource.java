@@ -41,6 +41,9 @@ public class UserResource  {
 		UserProfile userProfile = new UserProfile("Shi", "Lei",
 				"Spichernstr.2", "10777", "Berlin", 1, "03088716060",
 				"technik@pyrexx.com");
+		// a maintenance book
+		MaintenanceBook book1 = new MaintenanceBook("14059", "Danckelmannstr.", "46", "Berlin", "3", "links", "Shi", "Lei", "0123456789");
+		
 		//user.getMaintencenBooks().add(mbook);
 		user.setUserProfile(userProfile);
 		users.add(user);
@@ -124,6 +127,10 @@ public class UserResource  {
 			System.out.println("#################### Function \"add_ewbr_id\" #######################");
 			return this.addRoom(json);
 		}
+		if (function.equals("load_ewbr_id")) {
+			System.out.println("#################### Function \"load_ewbr_id\" #######################");
+			return this.loadRoomById(json);
+		}
 		
 		return "";
 	}
@@ -156,6 +163,39 @@ public class UserResource  {
 		System.err.println("Incorrenct login with " + name + "!");
 		return null;
 	}
+	
+	// function load_ewbr_id
+		private String loadRoomById(JSONObject json) throws JSONException {
+			JSONObject responeJSON = new JSONObject();
+			String username = json.getString("username");
+			String password = json.getString("password");
+			JSONObject params = json.getJSONObject("params"); // only one data, ewbr_id
+			if (username != null && password != null) {
+				for (int i = 0; i < users.size(); i++) {
+					if (username.equals(users.get(i).getUsername())
+							&& password.equals(users.get(i).getPassword())) { //validate the username and password
+						for (int n = 0; n < users.get(i).getMaintenanceBooks()
+								.size(); n++) {
+							if (params.getInt("ewbr_ewb_id") == users.get(i)
+									.getMaintenanceBooks().get(n).getId()) {
+								MaintenanceBook book = users.get(i).getMaintenanceBooks().get(n);
+								for (int m = 0; m < book.getRooms().size(); m++) {									
+									if (book.getRooms().get(m).getId() == params.getInt("ewbr_id")) {
+										responeJSON = this.getRoomDetailsInJSON(book, book.getRooms().get(m));
+									}
+								}
+								responeJSON.put("status", 1);
+								responeJSON.put("statusdescription", "function is ok!");
+								return responeJSON.toString();
+							}
+						}
+					}
+				}
+			}
+			responeJSON.put("status", 0);
+			responeJSON.put("statusdescription", "login failed");
+			return responeJSON.toString();
+		}
 	
 	// function add_ewbr_id
 	private String addRoom(JSONObject json) throws JSONException {
@@ -429,19 +469,67 @@ public class UserResource  {
 		return jBook;
 	}
 
-	//return a room data with json
+	//return a room data with json, for the funciton load_ewb_id
 	private JSONObject getRoomInJSON (Room room) throws JSONException {
 		JSONObject jRoom = new JSONObject();
 		if (room == null) {
 			jRoom.put("0", " ");
 		} else {
 			jRoom.put("ewbr_id", room.getId());
-			jRoom.put("ewb_id", room.getEwbId());
+			jRoom.put("ewbr_ewb_id", room.getEwbId());
 			jRoom.putOpt("ewbr_name", room.getName());
 		}
 		return jRoom;
 	}
 	
+	// return a room details with json, for the function load_ewbr_id
+	private JSONObject getRoomDetailsInJSON (MaintenanceBook book, Room room) throws JSONException {
+		JSONObject jRoom = new JSONObject();
+		if (room == null) {
+			jRoom.put("0", " ");
+		} else {
+			jRoom.put("ewbr_id", room.getId());
+			jRoom.put("ewbr_ewb_id", room.getEwbId());
+			jRoom.putOpt("ewbr_name", room.getName());
+			int roomsSize = book.getRooms().size();
+			if (roomsSize == 1) {
+				jRoom.put("ewbr_prev_status", 0);
+				jRoom.put("ewbr_next_status", 0);
+			} else {
+			for (int i = 0; i < roomsSize; i++) {
+				if (book.getRooms().get(i).getId() == room.getEwbId()) {
+					
+					if (i == 0 ) {  // the first room, there is only next room
+						Room nextRoom = book.getRooms().get(i+1);
+						jRoom.put("ewbr_prev_status", 0);
+						jRoom.put("ewbr_id_next", nextRoom.getId());
+						jRoom.put("ewbr_ewb_id_next", nextRoom.getEwbId());
+						jRoom.put("ewbr_name_next", nextRoom.getName());
+					}
+					if (i == roomsSize -1) { // the last room, there is only pre room
+						Room prevRoom = book.getRooms().get(i-1);
+						jRoom.put("ewbr_prev_status", 0);
+						jRoom.put("ewbr_id_prev", prevRoom.getId());
+						jRoom.put("ewbr_ewb_id_prev", prevRoom.getEwbId());
+						jRoom.put("ewbr_name_prev", prevRoom.getName());
+					}
+					if (i>0 && i < roomsSize-1) { // the room has pre and next
+						Room prevRoom = book.getRooms().get(i-1);
+						jRoom.put("ewbr_id_prev", prevRoom.getId());
+						jRoom.put("ewbr_ewb_id_prev", prevRoom.getEwbId());
+						jRoom.put("ewbr_name_prev", prevRoom.getName());
+						Room nextRoom = book.getRooms().get(i+1);
+						jRoom.put("ewbr_id_next", nextRoom.getId());
+						jRoom.put("ewbr_ewb_id_next", nextRoom.getEwbId());
+						jRoom.put("ewbr_name_next", nextRoom.getName());	
+					}
+				}
+			}
+			}
+			// TODO: add ewbi_list
+		}
+		return jRoom;
+	}
 	
 	private List<MaintenanceBook> getEWBByParams(User user, JSONObject jParams)
 			throws JSONException {
